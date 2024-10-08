@@ -4,7 +4,7 @@ import pandas as pd
 import json
 
 # API Key สำหรับ AI For Thai
-apikey = "OkbxIAeqs6zENpMTWDq9tU8vGp1JydYu"
+apikey = "Your API Key"
 sentiment_api_url = 'https://api.aiforthai.in.th/ssense'
 
 # URL ของเว็บที่ต้องการ scrape
