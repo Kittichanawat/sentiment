@@ -7,7 +7,7 @@ text = 'ไอปัญญาอ่อน'
 data = {'text':text}
  
 headers = {
-    'Apikey': "OkbxIAeqs6zENpMTWDq9tU8vGp1JydYu",
+    'Apikey': "Your API Key",
     }
  
 response = requests.post(url, data=data, headers=headers)
