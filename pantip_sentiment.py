@@ -1,11 +1,22 @@
-from playwright.sync_api import sync_playwright
 import requests
+from bs4 import BeautifulSoup
+import pandas as pd
 import json
-
 # API Key สำหรับ AI For Thai
-apikey = "OkbxIAeqs6zENpMTWDq9tU8vGp1JydYu"
+apikey = "Your API Key"
 sentiment_api_url = 'https://api.aiforthai.in.th/ssense'
-
+# URL ของเว็บที่ต้องการ scrape
+url = 'https://pantip.com/topic/42955493'
+# ส่ง request ไปยัง URL
+res = requests.get(url)
+# ดึง HTML ของหน้าเว็บมา
+html_page = res.content
+# สร้าง BeautifulSoup object
+soup = BeautifulSoup(html_page, 'html.parser')
+# ดึงข้อความทั้งหมดจากหน้าเว็บ
+txts = soup.find_all(string=True)
+# กรองข้อความที่มีคำว่า 'iPhone 16' หรือ 'Xiaomi 15 Pro'
+txts = [txt for txt in txts if 'iPhone 16' in txt or 'Xiaomi 14T Pro' in txt]
 # ฟังก์ชันสำหรับส่งข้อความไปยัง Sentiment Analysis API
 def analyze_sentiment(text):
     headers = {
@@ -14,72 +25,48 @@ def analyze_sentiment(text):
     payload = {
         'text': text
     }
-    
-    try:
-        # ส่ง request ไปยัง API
-        response = requests.post(sentiment_api_url, headers=headers, data=payload)
+    response = requests.post(sentiment_api_url, headers=headers, data=payload)
+    return response.json()
+# สร้างลิสต์สำหรับเก็บข้อมูล
+data = []
+# วนลูปข้อความ และวิเคราะห์ sentiment
+for txt in txts:
+    sentiment_result = analyze_sentiment(txt)
 
-        # ตรวจสอบสถานะการตอบกลับ
-        if response.status_code == 200:
-            try:
-                return response.json()
-            except json.decoder.JSONDecodeError:
-                print("Error: Unable to decode JSON from API response")
-                return None
-        else:
-            print(f"Error: Received status code {response.status_code} from API")
-            return None
-    except requests.RequestException as e:
-        print(f"Error: Unable to connect to API - {e}")
-        return None
+    # ดึงคะแนนและประเภทของ sentiment
+    score = sentiment_result['sentiment'].get('score', 'N/A')
+    polarity = sentiment_result['sentiment'].get('polarity', 'N/A')
 
-# ฟังก์ชันสำหรับ scrape คอมเมนต์ด้วย Playwright (Firefox)
-def scrape_pantip_comments_with_firefox(url):
-    try:
-        with sync_playwright() as p:
-            # เปิด Firefox
-            browser = p.firefox.launch(headless=False)  # เปลี่ยนเป็น True ถ้าต้องการรันแบบ headless
-            page = browser.new_page()
-            page.goto(url)
-            
-            # รอให้คอมเมนต์โหลด
-            page.wait_for_selector('.pt-list-item__title')
-
-            # ดึงคอมเมนต์
-            comments = page.query_selector_all('.pt-list-item__title')
-
-            # สร้างลิสต์สำหรับเก็บข้อมูลคอมเมนต์
-            comment_texts = []
-            for i, comment in enumerate(comments, 1):
-                comment_text = comment.inner_text()
-                comment_texts.append(comment_text)
-
-            # ปิดเบราว์เซอร์
-            browser.close()
-
-            return comment_texts
-    except Exception as e:
-        print(f"Error scraping comments: {e}")
-        return []
-
-# URL ของหน้า Pantip ที่ต้องการ scrape
-url = 'https://pantip.com/tag/iPhone_16'
-
-# ดึงคอมเมนต์จากหน้าเว็บ Pantip
-comments = scrape_pantip_comments_with_firefox(url)
-
-# วนลูปคอมเมนต์ที่ดึงมา และวิเคราะห์ sentiment
-for comment in comments:
-    sentiment_result = analyze_sentiment(comment)
-
-    if sentiment_result:
-        # ดึงคะแนนและประเภทของ sentiment
-        score = sentiment_result['sentiment'].get('score', 'N/A')
-        polarity = sentiment_result['sentiment'].get('polarity', 'N/A')
-
-        # แสดงผลลัพธ์ของการวิเคราะห์
-        print(f"ข้อความ: {comment}")
-        print(f"คะแนน: {score}, ประเภท: {polarity}")
+    # เพิ่มผลลัพธ์ลงในลิสต์
+    data.append([txt, score, polarity])
+# สร้าง DataFrame
+df = pd.DataFrame(data, columns=['ข้อความ', 'คะแนน', 'ประเภท'])
+# ฟังก์ชันสำหรับใส่สีให้กับคอลัมน์ประเภท sentiment
+def highlight_sentiment(val):
+    if val == 'positive':
+        color = 'green'
+    elif val == 'negative':
+        color = 'red'
+    elif val == 'neutral':
+        color = 'gray'
     else:
-        print(f"ไม่สามารถวิเคราะห์ sentiment สำหรับคอมเมนต์: {comment}")
-    print("-" * 50)
+        color = 'white'
+    return f'background-color: {color}'
+# ฟังก์ชันสำหรับใส่สีให้กับคอลัมน์คะแนน
+def highlight_score(val):
+    try:
+        score = float(val)
+        if score > 50:
+            color = 'green'
+        elif score == 50:
+            color = 'yellow'
+        else:
+            color = 'red'
+    except:
+        color = 'white'
+    return f'background-color: {color}'
+# ใช้ฟังก์ชันสำหรับจัดรูปแบบตาราง (ใช้ map() แทน applymap())
+styled_df = df.style.map(highlight_sentiment, subset=['ประเภท']) \
+                     .map(highlight_score, subset=['คะแนน'])
+# แสดงตารางพร้อมการจัดสี
+styled_df
