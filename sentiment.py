@@ -3,11 +3,11 @@ from bs4 import BeautifulSoup
 import json
 
 # API Key สำหรับ AI For Thai
-apikey = "OkbxIAeqs6zENpMTWDq9tU8vGp1JydYu"
+apikey = "Your API key"
 sentiment_api_url = 'https://api.aiforthai.in.th/ssense'
 
 # URL ของเว็บที่ต้องการ scrape
-url = 'https://www.extremeit.com/'
+url = 'https://droidsans.com/'
 
 # ส่ง request ไปยัง URL
 res = requests.get(url)
